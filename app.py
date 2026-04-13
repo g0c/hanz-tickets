@@ -1,44 +1,46 @@
-# v1.0.2
-
+# v1.1.2
 from fastapi import FastAPI, HTTPException, Form, Depends
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-import os
 import sqlite3
-from datetime import datetime
-from ldap3 import Server, Connection, ALL, exceptions
+import re  # Za pametnije pretraživanje teksta
+import os
+from ldap3 import Server, Connection, ALL
+from ldap3.core.exceptions import LDAPBindError
 
-app = FastAPI(title="hanz-back")
+app = FastAPI(title="zahtjevi-ticketing")
 
-# Postavke za Active Directory - Zamijeni s točnim podacima
-AD_SERVER = "ldap://10.X.X.X" 
-AD_DOMAIN = "interna-domena.hr"
+# AD Konfiguracija
+AD_SERVER = "ldaps://10.2.2.114:636" 
+AD_DOMAIN = "hanzekovic.hr"
 
 security = HTTPBasic()
 
-# Funkcija za provjeru korisnika u Active Directoryju
+# Centralno mjesto za kategorije
+VRSTE_ZAHTJEVA = {
+    "Backup/Restore": "Povrat podataka (Backup)",
+    "Permissions": "Prava pristupa (Folderi/DFS)",
+    "Hardware": "Problem s hardverom (PC, Printer)",
+    "Software": "Instalacija softvera",
+    "Novi Korisnik": "Zahtjev za novog djelatnika",
+    "Ostalo": "Ostalo"
+}
+
 def get_current_user(credentials: HTTPBasicCredentials = Depends(security)):
     try:
-        server = Server(AD_SERVER, get_info=ALL)
+        server = Server(AD_SERVER, use_ssl=True, get_info=ALL)
         user_principal = f"{credentials.username}@{AD_DOMAIN}"
-        # Pokušaj spajanja na AD s unesenim korisničkim imenom i lozinkom
         conn = Connection(server, user=user_principal, password=credentials.password, auto_bind=True)
         conn.unbind()
         return credentials.username
-    except exceptions.LDAPBindError:
-        raise HTTPException(
-            status_code=401,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Basic"},
-        )
+    except LDAPBindError:
+        raise HTTPException(status_code=401, detail="Neispravni podaci", headers={"WWW-Authenticate": "Basic"})
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"AD Connection error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"AD Error: {str(e)}")
 
-# Montiranje statičnih datoteka kako bi preglednik mogao dohvatiti CSS i JS
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Funkcija koja kreira SQLite bazu i tablicu zahtjeva ukoliko već ne postoje
 def init_db():
     connection = sqlite3.connect("database.db")
     cursor = connection.cursor()
@@ -50,7 +52,7 @@ def init_db():
             file_path TEXT,
             description TEXT,
             status TEXT DEFAULT 'Pending',
-            is_path_verified BOOLEAN,
+            is_path_verified BOOLEAN DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -59,33 +61,70 @@ def init_db():
 
 init_db()
 
-# Glavna ruta koja čita i prikazuje HTML sučelje, zaštićena AD prijavom
 @app.get("/", response_class=HTMLResponse)
 async def root(username: str = Depends(get_current_user)):
-    with open("templates/index.html", "r", encoding="utf-8") as f:
+    # Putanja do predloška - provjeravamo točno templates mapu
+    path = os.path.join("templates", "index.html")
+    with open(path, "r", encoding="utf-8") as f:
         html_content = f.read()
-    return HTMLResponse(content=html_content, status_code=200)
+    
+    # Generiranje HTML opcija
+    options_html = "".join([f'<option value="{k}">{v}</option>' for k, v in VRSTE_ZAHTJEVA.items()])
+    
+    # Koristimo REGEX koji ignorira razmake unutar {{ }}
+    html_content = re.sub(r"\{\{\s*request_options\s*\}\}", options_html, html_content)
+    html_content = re.sub(r"\{\{\s*username\s*\}\}", username, html_content)
+    
+    return HTMLResponse(content=html_content)
 
-# Ruta koja prima podatke iz frontend forme, provjerava putanju i sprema zahtjev sa stvarnim AD korisnikom
+@app.get("/zahtjevi-admin", response_class=HTMLResponse)
+async def admin_page(username: str = Depends(get_current_user)):
+    connection = sqlite3.connect("database.db")
+    connection.row_factory = sqlite3.Row
+    cursor = connection.cursor()
+    cursor.execute("SELECT * FROM requests ORDER BY created_at DESC")
+    rows = cursor.fetchall()
+    connection.close()
+
+    table_rows = ""
+    for row in rows:
+        status_class = "bg-pending" if row['status'] == 'Pending' else "bg-success-vibrant"
+        table_rows += f"""
+        <tr>
+            <td><strong>#{row['id']}</strong></td>
+            <td>{row['username']}</td>
+            <td><span class="badge {status_class}">{row['status']}</span></td>
+            <td><span class="text-primary fw-bold">{row['request_type']}</span></td>
+            <td><code class="text-dark bg-light p-1 rounded">{row['file_path'] if row['file_path'] else '-'}</code></td>
+            <td>{row['description']}</td>
+            <td><small class="text-muted">{row['created_at']}</small></td>
+        </tr>
+        """
+
+    path = os.path.join("templates", "admin.html")
+    with open(path, "r", encoding="utf-8") as f:
+        html_content = f.read()
+    
+    html_content = re.sub(r"\{\{\s*table_rows\s*\}\}", table_rows, html_content)
+    html_content = re.sub(r"\{\{\s*username\s*\}\}", username, html_content)
+    return HTMLResponse(content=html_content)
+
 @app.post("/submit-request")
 async def submit_request(
     request_type: str = Form(...),
-    file_path: str = Form(...),
+    file_path: str = Form(None),
     description: str = Form(...),
     username: str = Depends(get_current_user)
 ):
-    path_exists = os.path.exists(file_path)
-    
     try:
         connection = sqlite3.connect("database.db")
         cursor = connection.cursor()
         cursor.execute('''
-            INSERT INTO requests (username, request_type, file_path, description, is_path_verified)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (username, request_type, file_path, description, path_exists))
+            INSERT INTO requests (username, request_type, file_path, description)
+            VALUES (?, ?, ?, ?)
+        ''', (username, request_type, file_path, description))
         connection.commit()
         connection.close()
-        
-        return {"status": "success", "path_verified": path_exists}
+        return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
