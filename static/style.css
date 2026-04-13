@@ -1,10 +1,5 @@
-/* v1.0.2
-   ===========================================================
-   ENTERPRISE UI - VIBRANT EDITION
-   =========================================================== */
-
+/* v1.0.3 */
 body {
-    /* Življa, moderna gradijent pozadina */
     background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
     background-attachment: fixed;
     font-family: "Segoe UI", Roboto, sans-serif;
@@ -12,7 +7,6 @@ body {
     min-height: 100vh;
 }
 
-/* Suptilni mrežni uzorak preko gradijenta */
 body::before {
     content: "";
     position: fixed;
@@ -21,23 +15,16 @@ body::before {
     background-size: 20px 20px;
     opacity: 0.2;
     z-index: -1;
-    pointer-events: none;
 }
 
-.container-fluid { max-width: 1600px; }
-
-/* NAVBAR - Deep Indigo */
 .navbar {
     background: linear-gradient(90deg, #1e3c72 0%, #2a5298 100%) !important;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
     border-bottom: 2px solid #3498db;
 }
 
-/* CARDS - Elevated look */
 .card {
     border: none;
     border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(149, 157, 165, 0.2);
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
 }
@@ -46,53 +33,25 @@ body::before {
     background: #2a5298;
     color: white;
     border-radius: 12px 12px 0 0 !important;
-    padding: 1.25rem;
     font-weight: 600;
-}
-
-/* TABLES - DataTables Customization */
-table.dataTable thead th {
-    background-color: #34495e !important;
-    color: #ecf0f1 !important;
-    border-bottom: none !important;
-}
-
-.table-hover tbody tr:hover {
-    background-color: #ebf5fb !important;
-    transition: 0.2s;
-}
-
-/* STATUS BADGES - Vibrant Colors */
-.badge {
-    padding: 8px 12px;
-    border-radius: 50px;
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: 0.75rem;
-}
-
-.bg-pending { background-color: #f39c12 !important; color: #fff; } /* Amber */
-.bg-success-vibrant { background-color: #27ae60 !important; color: #fff; } /* Emerald */
-
-/* FORMS */
-.form-control:focus {
-    border-color: #3498db;
-    box-shadow: 0 0 0 0.25rem rgba(52, 152, 219, 0.25);
 }
 
 .btn-primary {
     background: #3498db !important;
     border: none !important;
-    transition: 0.3s;
 }
 
 .btn-primary:hover {
     background: #2980b9 !important;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+    transform: translateY(-1px);
 }
 
-footer {
-    color: #5d6d7e;
-    font-weight: 500;
-}
+/* Boje za statuse (Pilule) */
+.badge-pending { background-color: #f39c12 !important; color: white; } /* Narančasta */
+.badge-progress { background-color: #3498db !important; color: white; } /* Plava */
+.badge-success { background-color: #27ae60 !important; color: white; }  /* Zelena */
+.badge-rejected { background-color: #e74c3c !important; color: white; } /* Crvena */
+
+/* Stilovi za survey gumbe */
+.btn-sentiment { transition: 0.3s; border-radius: 20px; }
+.btn-sentiment:hover { transform: scale(1.1); }

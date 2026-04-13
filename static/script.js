@@ -1,4 +1,4 @@
-// v1.0.3
++// v1.0.4
 document.getElementById('requestForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
@@ -11,16 +11,15 @@ document.getElementById('requestForm').addEventListener('submit', async (e) => {
         });
 
         if (response.ok) {
-            responseDiv.innerHTML = `<div class="alert alert-success">✅ Vaš zahtjev je zaprimljen.</div>`;
+            responseDiv.innerHTML = `<div class="alert alert-success shadow-sm">✅ Zahtjev zaprimljen. Status pratite u "Moji Zahtjevi".</div>`;
             e.target.reset();
-            // Sakrij path container ako je bio vidljiv nakon reseta
             if(document.getElementById('pathInputContainer')) {
                 document.getElementById('pathInputContainer').style.display = 'none';
             }
         } else {
-            responseDiv.innerHTML = `<div class="alert alert-danger">❌ Greška pri slanju.</div>`;
+            responseDiv.innerHTML = `<div class="alert alert-danger shadow-sm">❌ Greška pri spremanju.</div>`;
         }
     } catch (error) {
-        responseDiv.innerHTML = `<div class="alert alert-danger">❌ Server nedostupan.</div>`;
+        responseDiv.innerHTML = `<div class="alert alert-danger shadow-sm">❌ Veza sa serverom je prekinuta.</div>`;
     }
 });
