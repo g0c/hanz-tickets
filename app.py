@@ -1,4 +1,4 @@
-# v1.1.46
+# v1.1.48
 # Invisible Signature: Created by g0c - Hanza IT Infrastructure 2026
 
 from fastapi import FastAPI, HTTPException, Form, Depends
@@ -23,7 +23,7 @@ app = FastAPI(title="hanz-tickets")
 AD_SERVER = "ldaps://10.2.2.114:636" 
 AD_DOMAIN = "hanzekovic.hr"
 
-# Ovdje upiši tko smije vidjeti admin panel
+# Popis administratora s ovlastima za /zahtjevi-admin
 ADMIN_USERS = ["a.gkonjic", "a.lkoscec", "a.lhancic"] 
 
 SMTP_SERVER = "hanzekovic.mail.protection.outlook.com"
@@ -36,7 +36,6 @@ REDMINE_API_KEY = "cfc12c1dfe57144d460e5440ad81ba69acd9d647"
 REDMINE_PROJECT_ID = 6  
 REDMINE_TRACKER_ID = 4 
 
-# Koristimo PNG za logo jer Outlook SVG tretira kao potencijalni spam
 LOGO_PATH = "images/hanzekovic-logo.png" 
 
 security = HTTPBasic()
@@ -61,13 +60,8 @@ ODJELI = [
 GRADOVI = ["Zagreb", "Split", "Osijek"]
 SPOLOVI = {"M": "Muški (M)", "Ž": "Ženski (Ž)"}
 
-REDMINE_STATUS_MAPPING = {
-    "Pending": 1, "U tijeku": 2, "Završeno": 5, "Odbačeno": 6
-}
-
 # --- POMOĆNE FUNKCIJE ---
 
-# Određuje CSS klasu za statusne badgeve u tablicama
 def get_status_class(status):
     mapping = {
         "Pending": "badge-pending",
@@ -77,7 +71,7 @@ def get_status_class(status):
     }
     return mapping.get(status, "bg-secondary")
 
-# Slanje profesionalno formatiranog emaila (sa slikom unutar poruke)
+# Slanje profesionalno formatiranog emaila s ispravljenom logikom statusa
 def send_professional_email(subject, user_full_name, ticket_id, request_type, description, status, feedback="", user_email=None):
     try:
         msg = MIMEMultipart("related")
@@ -85,48 +79,50 @@ def send_professional_email(subject, user_full_name, ticket_id, request_type, de
         msg["From"] = f"IT Podrska <{MAIL_SENDER}>"
         msg["Date"] = formatdate(localtime=True)
         msg["Message-ID"] = make_msgid(domain=AD_DOMAIN)
-        msg["X-Mailer"] = "Hanza-IT-Portal-v1.1.46"
+        msg["X-Mailer"] = "Hanza-IT-Portal-v1.1.48"
         
         recipients = [MAIL_RECIPIENT_IT]
         if user_email and "@" in str(user_email):
             recipients.append(user_email)
         msg["To"] = ", ".join(recipients)
         
-        # Dinamičko postavljanje boja headera ovisno o statusu zahtjeva
+        # LOGIKA ZA DINAMIČKI HEADER I TEKST
         if status == "Završeno":
-            h_color, s_label = "#28a745", "RIJEŠEN"
+            h_color, s_label, action_text = "#28a745", "RIJEŠEN", "je uspješno RIJEŠEN"
         elif status == "Odbačeno":
-            h_color, s_label = "#dc3545", "ODBAČEN"
+            h_color, s_label, action_text = "#dc3545", "ODBAČEN", "je ODBAČEN"
+        elif status == "U tijeku":
+            h_color, s_label, action_text = "#007bff", "U TIJEKU", "je trenutno U TIJEKU"
         else:
-            h_color, s_label = "#1e3c72", "ZAPRIMLJEN"
+            h_color, s_label, action_text = "#1e3c72", "ZAPRIMLJEN", "je uspješno ZAPRIMLJEN"
             
-        feedback_div = f"""
+        f_div = f"""
         <div style='background:#eef6ff;padding:15px;border-left:4px solid #3498db;margin-top:20px;'>
-            <strong style='color:#1e3c72;'>IT Komentar:</strong><br>
+            <strong style='color:#1e3c72;'>IT Komentar / Uputa:</strong><br>
             <p style='margin:5px 0 0; color:#333;'>{feedback}</p>
         </div>""" if feedback else ""
 
         html = f"""
-        <html><body style="font-family:Arial,sans-serif;background-color:#f4f7f6;padding:20px;margin:0;">
+        <html><body style="font-family:'Segoe UI',Arial,sans-serif;background-color:#f4f7f6;padding:20px;margin:0;">
             <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;border:1px solid #ddd;box-shadow:0 4px 10px rgba(0,0,0,0.05);">
                 <div style="background:{h_color};padding:25px;text-align:center;">
                     <img src="cid:company_logo" alt="Logo" style="max-height:45px;"><br>
                     <span style="color:white;font-weight:bold;letter-spacing:1px;font-size:11px;text-transform:uppercase;">Status: {s_label}</span>
                 </div>
-                <div style="padding:30px;">
-                    <p>Poštovani/a <strong>{user_full_name}</strong>,</p>
-                    <p style="color:#555;">Vaš zahtjev <strong>#{ticket_id}</strong> je {s_label.lower()}.</p>
-                    <table style="width:100%;font-size:14px;margin-top:20px;border-collapse:collapse;">
-                        <tr><td style="padding:8px;border-bottom:1px solid #eee;color:#888;width:30%;">Kategorija:</td><td style="padding:8px;border-bottom:1px solid #eee;">{request_type}</td></tr>
-                        <tr><td style="padding:8px;color:#888;vertical-align:top;">Opis:</td><td style="padding:8px;white-space:pre-wrap;background:#fcfcfc;">{description}</td></tr>
+                <div style="padding:35px;">
+                    <p style="font-size:16px;">Poštovani/a <strong>{user_full_name}</strong>,</p>
+                    <p style="color:#555;">Obavještavamo Vas da Vaš zahtjev <strong>#{ticket_id}</strong> {action_text}.</p>
+                    <table style="width:100%;font-size:14px;margin-top:20px;border-collapse:collapse;color:#444;">
+                        <tr><td style="padding:10px;border-bottom:1px solid #eee;color:#888;width:30%;">Kategorija:</td><td style="padding:10px;border-bottom:1px solid #eee;font-weight:bold;">{request_type}</td></tr>
+                        <tr><td style="padding:10px;color:#888;vertical-align:top;">Opis zahtjeva:</td><td style="padding:10px;white-space:pre-wrap;background:#fcfcfc;border:1px solid #f0f0f0;">{description}</td></tr>
                     </table>
-                    {feedback_div}
-                    <div style="text-align: center; margin-top: 30px;">
-                        <a href="https://it-podrska.hanzekovic.hr/moji-zahtjevi" style="background:#2a5298;color:#fff;padding:12px 25px;text-decoration:none;border-radius:5px;font-weight:bold;display:inline-block;">Provjeri status</a>
+                    {f_div}
+                    <div style="text-align: center; margin-top: 35px;">
+                        <a href="https://it-podrska.hanzekovic.hr/moji-zahtjevi" style="background:#2a5298;color:#fff;padding:14px 28px;text-decoration:none;border-radius:5px;font-weight:bold;display:inline-block;">Provjeri moje zahtjeve</a>
                     </div>
                 </div>
-                <div style="background:#f8f9fa;padding:15px;text-align:center;color:#999;font-size:10px;">
-                    <p>Developed by <strong>PIOPET 2026</strong> | Hanza IT</p>
+                <div style="background:#f8f9fa;padding:15px;text-align:center;color:#999;font-size:10px;border-top:1px solid #eee;">
+                    <p style="margin:0;">Ovo je automatizirana poruka sustava PIOPET 2026 | Hanza IT</p>
                 </div>
             </div>
         </body></html>"""
@@ -146,16 +142,10 @@ def send_professional_email(subject, user_full_name, ticket_id, request_type, de
         print(f"SMTP Error: {e}")
 
 # --- REDMINE FUNKCIJE (ZAKOMENTIRANE) ---
-
-def create_redmine_issue(subject, description):
-    # data = {"issue": {"project_id": REDMINE_PROJECT_ID, "tracker_id": REDMINE_TRACKER_ID, "subject": subject, "description": description}}
-    return 0
-
-def update_redmine_issue(redmine_id, status_name, feedback):
-    pass
+def create_redmine_issue(subject, description): return 0
+def update_redmine_issue(redmine_id, status_name, feedback): pass
 
 # --- ACTIVE DIRECTORY AUTENTIFIKACIJA ---
-
 def get_ad_user_info(username, password):
     try:
         server = Server(AD_SERVER, use_ssl=True, get_info=ALL)
@@ -175,8 +165,7 @@ def get_current_user(credentials: HTTPBasicCredentials = Depends(security)):
     if not user_info["authenticated"]: raise HTTPException(status_code=401)
     return {"username": credentials.username, "email": user_info["email"], "full_name": user_info["full_name"]}
 
-# --- KONFIGURACIJA BAZE ---
-
+# --- KONFIGURACIJA ---
 app.mount("/images", StaticFiles(directory="images"), name="images")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -239,9 +228,8 @@ async def my_requests(user_data: dict = Depends(get_current_user)):
 
 @app.get("/zahtjevi-admin", response_class=HTMLResponse)
 async def admin_page(user_data: dict = Depends(get_current_user)):
-    # SIGURNOSNA PROVJERA
     if user_data["username"] not in ADMIN_USERS:
-        raise HTTPException(status_code=403, detail="Niste autorizirani za pristup admin panelu.")
+        raise HTTPException(status_code=403, detail="Pristup zabranjen.")
 
     conn = sqlite3.connect("database.db"); conn.row_factory = sqlite3.Row
     rows = conn.execute("SELECT * FROM requests ORDER BY id DESC").fetchall()
@@ -249,8 +237,6 @@ async def admin_page(user_data: dict = Depends(get_current_user)):
     
     table_rows = ""
     for r in rows:
-        status_cls = get_status_class(r['status'])
-        r_link = f"<a href='{REDMINE_URL}/{r['redmine_id']}' target='_blank'>#{r['redmine_id']}</a>" if r['redmine_id'] and r['redmine_id'] != 0 else "-"
         actions = f'''<select class="form-select form-select-sm" onchange="openStatusModal({r['id']}, this.value)">
                 <option value="Pending" {"selected" if r['status']=="Pending" else ""}>Pending</option>
                 <option value="U tijeku" {"selected" if r['status']=="U tijeku" else ""}>U tijeku</option>
@@ -260,7 +246,7 @@ async def admin_page(user_data: dict = Depends(get_current_user)):
         desc = f"{r['description']}"
         if r['feedback']: desc += f"<hr class='my-1'><small class='text-primary'><strong>Odgovor:</strong> {r['feedback']}</small>"
         
-        table_rows += f"<tr><td data-sort='{r['id']}'><strong>#{r['id']}</strong></td><td>{r['full_name']}</td><td>{actions}</td><td>{r['request_type']}</td><td>{r_link}</td><td class='text-description'>{desc}</td><td>{r['rating'] if r['rating'] else '-'}</td><td><small>{r['created_at']}</small></td></tr>"
+        table_rows += f"<tr><td data-sort='{r['id']}'><strong>#{r['id']}</strong></td><td>{r['full_name']}</td><td>{actions}</td><td>{r['request_type']}</td><td>#{r['redmine_id']}</td><td class='text-description'>{desc}</td><td>{r['rating'] if r['rating'] else '-'}</td><td><small>{r['created_at']}</small></td></tr>"
     
     path = os.path.join("templates", "admin.html")
     with open(path, "r", encoding="utf-8") as f: return HTMLResponse(content=f.read().replace("{{ table_rows }}", table_rows).replace("{{ username }}", user_data["full_name"]))
@@ -287,7 +273,7 @@ async def update_status(ticket_id: int = Form(...), new_status: str = Form(...),
         conn.commit(); update_redmine_issue(row['redmine_id'], new_status, feedback)
         
         u_info = get_ad_user_info(row['username'], "bypass") 
-        send_professional_email(f"Status zahtjeva #{ticket_id}: {new_status}", row['full_name'], ticket_id, row['request_type'], row['description'], new_status, feedback, u_info["email"])
+        send_professional_email(f"Promjena statusa zahtjeva #{ticket_id}", row['full_name'], ticket_id, row['request_type'], row['description'], new_status, feedback, u_info["email"])
     conn.close(); return {"status": "ok"}
 
 @app.post("/submit-survey")

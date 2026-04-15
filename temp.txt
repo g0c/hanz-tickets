@@ -1,0 +1,3 @@
+ADMIN_USERS = ["a.gkonjic", "a.lkoscec", "a.lhancic"]
+
+sqlite3 database.db "SELECT id, username, request_type, file_path FROM requests ORDER BY id DESC LIMIT 110;"
