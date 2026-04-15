@@ -1,6 +1,4 @@
-# v1.1.46
-# Invisible Signature: Created by g0c - Hanza IT Infrastructure 2026
-
+# v1.1.42
 from fastapi import FastAPI, HTTPException, Form, Depends
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -23,9 +21,6 @@ app = FastAPI(title="hanz-tickets")
 AD_SERVER = "ldaps://10.2.2.114:636" 
 AD_DOMAIN = "hanzekovic.hr"
 
-# Ovdje upiši tko smije vidjeti admin panel
-ADMIN_USERS = ["a.gkonjic", "a.lkoscec", "a.lhancic"] 
-
 SMTP_SERVER = "hanzekovic.mail.protection.outlook.com"
 SMTP_PORT = 25
 MAIL_SENDER = "support@hanzekovic.hr" 
@@ -43,6 +38,7 @@ security = HTTPBasic()
 
 # --- DEFINICIJE ZAHTJEVA, ODJELA I GRADOVA ---
 VRSTE_ZAHTJEVA = {
+    
     "Permissions": "Prava pristupa (Folderi/DFS)",
     "Hardware": "Problem s hardverom (PC, Printer)",
     "Software": "Instalacija softvera",
@@ -85,8 +81,9 @@ def send_professional_email(subject, user_full_name, ticket_id, request_type, de
         msg["From"] = f"IT Podrska <{MAIL_SENDER}>"
         msg["Date"] = formatdate(localtime=True)
         msg["Message-ID"] = make_msgid(domain=AD_DOMAIN)
-        msg["X-Mailer"] = "Hanza-IT-Portal-v1.1.46"
+        msg["X-Mailer"] = "Python-FastAPI-Portal"
         
+        # Sastavljanje primatelja: IT odjel je obavezan, korisnik po izboru
         recipients = [MAIL_RECIPIENT_IT]
         if user_email and "@" in str(user_email):
             recipients.append(user_email)
@@ -94,16 +91,19 @@ def send_professional_email(subject, user_full_name, ticket_id, request_type, de
         
         # Dinamičko postavljanje boja headera ovisno o statusu zahtjeva
         if status == "Završeno":
-            h_color, s_label = "#28a745", "RIJEŠEN"
+            h_color = "#28a745"
+            s_label = "RIJEŠEN"
         elif status == "Odbačeno":
-            h_color, s_label = "#dc3545", "ODBAČEN"
+            h_color = "#dc3545"
+            s_label = "ODBAČEN"
         else:
-            h_color, s_label = "#1e3c72", "ZAPRIMLJEN"
+            h_color = "#1e3c72"
+            s_label = "ZAPRIMLJEN"
             
         feedback_div = f"""
         <div style='background:#eef6ff;padding:15px;border-left:4px solid #3498db;margin-top:20px;'>
             <strong style='color:#1e3c72;'>IT Komentar:</strong><br>
-            <p style='margin:5px 0 0; color:#333;'>{feedback}</p>
+            <p style='margin:5px 0 0;'>{feedback}</p>
         </div>""" if feedback else ""
 
         html = f"""
@@ -118,7 +118,7 @@ def send_professional_email(subject, user_full_name, ticket_id, request_type, de
                     <p style="color:#555;">Vaš zahtjev <strong>#{ticket_id}</strong> je {s_label.lower()}.</p>
                     <table style="width:100%;font-size:14px;margin-top:20px;border-collapse:collapse;">
                         <tr><td style="padding:8px;border-bottom:1px solid #eee;color:#888;width:30%;">Kategorija:</td><td style="padding:8px;border-bottom:1px solid #eee;">{request_type}</td></tr>
-                        <tr><td style="padding:8px;color:#888;vertical-align:top;">Opis:</td><td style="padding:8px;white-space:pre-wrap;background:#fcfcfc;">{description}</td></tr>
+                        <tr><td style="padding:8px;color:#888;vertical-align:top;">Opis:</td><td style="padding:8px;white-space:pre-wrap;">{description}</td></tr>
                     </table>
                     {feedback_div}
                     <div style="text-align: center; margin-top: 30px;">
@@ -133,6 +133,7 @@ def send_professional_email(subject, user_full_name, ticket_id, request_type, de
         
         msg.attach(MIMEText(html, "html"))
 
+        # Prilažemo PNG sliku kao inline privitak
         if os.path.exists(LOGO_PATH):
             with open(LOGO_PATH, "rb") as f:
                 img = MIMEImage(f.read())
@@ -145,13 +146,15 @@ def send_professional_email(subject, user_full_name, ticket_id, request_type, de
     except Exception as e:
         print(f"SMTP Error: {e}")
 
-# --- REDMINE FUNKCIJE (ZAKOMENTIRANE) ---
+# --- REDMINE FUNKCIJE (ZAKOMENTIRANE DO DALJNJEGA) ---
 
 def create_redmine_issue(subject, description):
     # data = {"issue": {"project_id": REDMINE_PROJECT_ID, "tracker_id": REDMINE_TRACKER_ID, "subject": subject, "description": description}}
+    # (API kod ostaje ovdje za kasniju upotrebu)
     return 0
 
 def update_redmine_issue(redmine_id, status_name, feedback):
+    # (Logika za sinkronizaciju statusa s Redmine-om)
     pass
 
 # --- ACTIVE DIRECTORY AUTENTIFIKACIJA ---
@@ -175,7 +178,7 @@ def get_current_user(credentials: HTTPBasicCredentials = Depends(security)):
     if not user_info["authenticated"]: raise HTTPException(status_code=401)
     return {"username": credentials.username, "email": user_info["email"], "full_name": user_info["full_name"]}
 
-# --- KONFIGURACIJA BAZE ---
+# --- MONTIMANJE STATIČKIH MAPA I BAZA ---
 
 app.mount("/images", StaticFiles(directory="images"), name="images")
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -192,13 +195,14 @@ def init_db():
 
 init_db()
 
-# --- RUTE ---
+# --- RUTE ZA PRIKAZ WEB STRANICA ---
 
 @app.get("/", response_class=HTMLResponse)
 async def root(user_data: dict = Depends(get_current_user)):
     path = os.path.join("templates", "index.html")
     with open(path, "r", encoding="utf-8") as f: html = f.read()
     
+    # Generiranje svih opcija za dropdown izbornike
     req_options = "".join([f'<option value="{k}">{v}</option>' for k, v in VRSTE_ZAHTJEVA.items()])
     grad_options = "".join([f'<option value="{g}">{g}</option>' for g in GRADOVI])
     odj_options = "".join([f'<option value="{o}">{o}</option>' for o in ODJELI])
@@ -213,13 +217,16 @@ async def root(user_data: dict = Depends(get_current_user)):
 
 @app.get("/moji-zahtjevi", response_class=HTMLResponse)
 async def my_requests(user_data: dict = Depends(get_current_user)):
-    conn = sqlite3.connect("database.db"); conn.row_factory = sqlite3.Row
+    conn = sqlite3.connect("database.db")
+    conn.row_factory = sqlite3.Row
+    # Prikaz najnovijih zahtjeva na vrhu (id DESC)
     rows = conn.execute("SELECT * FROM requests WHERE username = ? ORDER BY id DESC", (user_data["username"],)).fetchall()
     conn.close()
     
     table_rows = ""
     for r in rows:
         status_cls = get_status_class(r['status'])
+        # Logika za prikaz ankete zadovoljstva
         survey_html = ""
         if r['status'] == 'Završeno' and not r['rating']:
             survey_html = f'''<div class="btn-group"><button onclick="submitSurvey({r['id']}, 'Pozitivno')" class="btn btn-sm btn-outline-success">😊</button><button onclick="submitSurvey({r['id']}, 'Neutralno')" class="btn btn-sm btn-outline-warning">😐</button><button onclick="submitSurvey({r['id']}, 'Negativno')" class="btn btn-sm btn-outline-danger">🙁</button></div>'''
@@ -239,18 +246,17 @@ async def my_requests(user_data: dict = Depends(get_current_user)):
 
 @app.get("/zahtjevi-admin", response_class=HTMLResponse)
 async def admin_page(user_data: dict = Depends(get_current_user)):
-    # SIGURNOSNA PROVJERA
-    if user_data["username"] not in ADMIN_USERS:
-        raise HTTPException(status_code=403, detail="Niste autorizirani za pristup admin panelu.")
-
-    conn = sqlite3.connect("database.db"); conn.row_factory = sqlite3.Row
+    conn = sqlite3.connect("database.db")
+    conn.row_factory = sqlite3.Row
     rows = conn.execute("SELECT * FROM requests ORDER BY id DESC").fetchall()
     conn.close()
     
     table_rows = ""
     for r in rows:
         status_cls = get_status_class(r['status'])
-        r_link = f"<a href='{REDMINE_URL}/{r['redmine_id']}' target='_blank'>#{r['redmine_id']}</a>" if r['redmine_id'] and r['redmine_id'] != 0 else "-"
+        r_id = r['redmine_id']
+        r_link = f"<a href='{REDMINE_URL}/{r_id}' target='_blank'>#{r_id}</a>" if r_id and r_id != 0 else "-"
+        
         actions = f'''<select class="form-select form-select-sm" onchange="openStatusModal({r['id']}, this.value)">
                 <option value="Pending" {"selected" if r['status']=="Pending" else ""}>Pending</option>
                 <option value="U tijeku" {"selected" if r['status']=="U tijeku" else ""}>U tijeku</option>
@@ -265,30 +271,36 @@ async def admin_page(user_data: dict = Depends(get_current_user)):
     path = os.path.join("templates", "admin.html")
     with open(path, "r", encoding="utf-8") as f: return HTMLResponse(content=f.read().replace("{{ table_rows }}", table_rows).replace("{{ username }}", user_data["full_name"]))
 
+# --- POST AKCIJE ---
+
 @app.post("/submit-request")
-async def submit_request(request_type: str = Form(...), description: str = Form(...), user_data: dict = Depends(get_current_user)):
+async def submit_request(request_type: str = Form(...), file_path: str = Form(None), description: str = Form(...), user_data: dict = Depends(get_current_user)):
     r_id = create_redmine_issue(f"IT Zahtjev: {request_type} - {user_data['full_name']}", description)
-    conn = sqlite3.connect("database.db"); cursor = conn.cursor()
-    cursor.execute('INSERT INTO requests (username, full_name, request_type, description, redmine_id) VALUES (?, ?, ?, ?, ?)', 
-                   (user_data["username"], user_data["full_name"], request_type, description, r_id))
-    tid = cursor.lastrowid; conn.commit(); conn.close()
+    
+    conn = sqlite3.connect("database.db")
+    cursor = conn.cursor()
+    cursor.execute('INSERT INTO requests (username, full_name, request_type, file_path, description, redmine_id) VALUES (?, ?, ?, ?, ?, ?)', 
+                   (user_data["username"], user_data["full_name"], request_type, file_path, description, r_id))
+    tid = cursor.lastrowid
+    conn.commit(); conn.close()
     
     send_professional_email(f"Zaprimljen IT zahtjev #{tid}", user_data["full_name"], tid, request_type, description, "Pending", "", user_data["email"])
     return {"status": "success"}
 
 @app.post("/update-status")
 async def update_status(ticket_id: int = Form(...), new_status: str = Form(...), feedback: str = Form(""), user_data: dict = Depends(get_current_user)):
-    if user_data["username"] not in ADMIN_USERS: raise HTTPException(status_code=403)
-    
-    conn = sqlite3.connect("database.db"); conn.row_factory = sqlite3.Row
+    conn = sqlite3.connect("database.db")
+    conn.row_factory = sqlite3.Row
     row = conn.execute("SELECT * FROM requests WHERE id = ?", (ticket_id,)).fetchone()
     if row:
         conn.execute("UPDATE requests SET status = ?, feedback = ? WHERE id = ?", (new_status, feedback, ticket_id))
-        conn.commit(); update_redmine_issue(row['redmine_id'], new_status, feedback)
+        conn.commit()
+        update_redmine_issue(row['redmine_id'], new_status, feedback)
         
-        u_info = get_ad_user_info(row['username'], "bypass") 
-        send_professional_email(f"Status zahtjeva #{ticket_id}: {new_status}", row['full_name'], ticket_id, row['request_type'], row['description'], new_status, feedback, u_info["email"])
-    conn.close(); return {"status": "ok"}
+        user_info = get_ad_user_info(row['username'], "bypass") 
+        send_professional_email(f"Status zahtjeva #{ticket_id}: {new_status}", row['full_name'], ticket_id, row['request_type'], row['description'], new_status, feedback, user_info["email"])
+    conn.close()
+    return {"status": "ok"}
 
 @app.post("/submit-survey")
 async def submit_survey(ticket_id: int = Form(...), rating: str = Form(...), user_data: dict = Depends(get_current_user)):
