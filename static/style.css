@@ -1,4 +1,4 @@
-/* v1.0.3 */
+/* v1.0.4 */
 body {
     background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
     background-attachment: fixed;
@@ -47,10 +47,10 @@ body::before {
 }
 
 /* Boje za statuse (Pilule) */
-.badge-pending { background-color: #f39c12 !important; color: white; } /* Narančasta */
-.badge-progress { background-color: #3498db !important; color: white; } /* Plava */
-.badge-success { background-color: #27ae60 !important; color: white; }  /* Zelena */
-.badge-rejected { background-color: #e74c3c !important; color: white; } /* Crvena */
+.badge-pending { background-color: #f39c12 !important; color: white; }
+.badge-progress { background-color: #3498db !important; color: white; }
+.badge-success { background-color: #27ae60 !important; color: white; }
+.badge-rejected { background-color: #e74c3c !important; color: white; }
 
 /* Stilovi za survey gumbe */
 .btn-sentiment { transition: 0.3s; border-radius: 20px; }

@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sustav Zahtjeva | hanz-tickets</title>
+    <title>Hanžeković & Partneri | Zahtjevi</title>
+    <link rel="icon" type="image/svg+xml" href="/images/favicon.svg">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -11,9 +12,9 @@
 
 <nav class="navbar navbar-expand-lg navbar-dark mb-4">
     <div class="container-fluid px-4">
-        <span class="navbar-brand mb-0 h1">🚀 hanz-tickets</span>
+        <span class="navbar-brand mb-0 h1">🚀 H&P | Zahtjevi</span>
         <div class="ms-auto d-flex align-items-center">
-            <a href="/moji-zahtjevi" class="btn btn-outline-light btn-sm me-3">📋 Moji Zahtjevi</a>
+            <a href="/moji-zahtjevi" class="btn btn-outline-light btn-sm me-3">📋 Moji zahtjevi</a>
             <span class="text-light small">👤 Prijavljen: <strong>{{ username }}</strong></span>
         </div>
     </div>
@@ -22,10 +23,11 @@
 <div class="container">
     <div class="card mx-auto shadow-lg" style="max-width: 700px;">
         <div class="card-header text-center">
-            <h4 class="mb-0 py-2">Novi IT Zahtjev</h4>
+            <h4 class="mb-0 py-2">Novi IT zahtjev</h4>
         </div>
         <div class="card-body p-4">
             <form id="requestForm">
+                
                 <div class="mb-4">
                     <label class="form-label fw-bold">Što trebate?</label>
                     <select class="form-select form-select-lg" id="request_type" name="request_type" required>
@@ -39,12 +41,74 @@
                     <input type="text" class="form-control" name="file_path" id="file_path" placeholder="\\server\share">
                 </div>
 
-                <div class="mb-4">
+                <div class="mb-4" id="descriptionContainer">
                     <label class="form-label fw-bold">Opis zahtjeva</label>
-                    <textarea class="form-control" name="description" rows="4" required placeholder="Detaljno opišite problem ili zahtjev..."></textarea>
+                    <textarea class="form-control" name="description" id="standard_description" rows="4" required placeholder="Detaljno opišite problem ili zahtjev..."></textarea>
                 </div>
 
-                <button type="submit" class="btn btn-primary btn-lg w-100 shadow">Pošalji IT-u</button>
+                <div id="noviKorisnikContainer" style="display: none;" class="mb-4 p-4 border rounded bg-light">
+                    <h5 class="mb-4 text-primary border-bottom pb-2">Detalji Novog Djelatnika</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">Zahtjev podnosi</label>
+                            <input type="text" class="form-control" id="nk_podnosi" value="{{ username }}" readonly>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">Ime kandidata</label>
+                            <input type="text" class="form-control nk-req" id="nk_ime">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">Prezime kandidata</label>
+                            <input type="text" class="form-control nk-req" id="nk_prezime">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">Spol</label>
+                            <select class="form-select nk-req" id="nk_spol">
+                                <option value="" selected disabled>-- Odaberi --</option>
+                                {{ spolovi_options }}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">Odjel / Uloga</label>
+                            <select class="form-select nk-req" id="nk_odjel">
+                                <option value="" selected disabled>-- Odaberi --</option>
+                                {{ odjeli_options }}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">Lokacija radnog mjesta</label>
+                            <input type="text" class="form-control nk-req" id="nk_lokacija">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">Grad</label>
+                            <select class="form-select nk-req" id="nk_grad">
+                                <option value="" selected disabled>-- Odaberi --</option>
+                                {{ gradovi_options }}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">Sistemski PIN</label>
+                            <input type="text" class="form-control" id="nk_pin">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">Datum dolaska</label>
+                            <input type="date" class="form-control nk-req" id="nk_datum">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">Broj mobitela</label>
+                            <input type="text" class="form-control" id="nk_mobitel">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold small text-muted">Napomena / Specifični zahtjevi</label>
+                            <textarea class="form-control" id="nk_napomena" rows="2"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" id="submitBtn" class="btn btn-primary btn-lg w-100 shadow d-flex justify-content-center align-items-center gap-2">
+                    <span id="submitSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                    <span id="submitText">Pošalji IT-u</span>
+                </button>
             </form>
             
             <div id="responseMessage" class="mt-3"></div>
@@ -60,7 +124,7 @@
     
     <footer class="mt-5 mb-4 text-center text-muted">
         <hr class="w-25 mx-auto">
-        <small>Developed by <strong>piopet 2026</strong> | IT Infrastructure</small>
+        <small>Developed by <strong>PIOPET 2026</strong> | IT Infrastructure</small>
     </footer>
 </div>
 
@@ -68,14 +132,37 @@
 <script>
     const typeSelect = document.getElementById('request_type');
     const pathContainer = document.getElementById('pathInputContainer');
+    const pathInput = document.getElementById('file_path');
+    
+    const descContainer = document.getElementById('descriptionContainer');
+    const stdDescription = document.getElementById('standard_description');
+    
+    const nkContainer = document.getElementById('noviKorisnikContainer');
+    const nkReqFields = document.querySelectorAll('.nk-req');
     
     typeSelect.addEventListener('change', function() {
+        // Reset the form layout completely first
+        pathContainer.style.display = 'none';
+        pathInput.required = false;
+        
+        descContainer.style.display = 'block';
+        stdDescription.required = true;
+        
+        nkContainer.style.display = 'none';
+        nkReqFields.forEach(f => f.required = false);
+
+        // Apply specific layout logic
         if (this.value === 'Backup/Restore' || this.value === 'Permissions') {
             pathContainer.style.display = 'block';
-            document.getElementById('file_path').required = true;
-        } else {
-            pathContainer.style.display = 'none';
-            document.getElementById('file_path').required = false;
+            pathInput.required = true;
+        } 
+        else if (this.value === 'Novi Korisnik') {
+            descContainer.style.display = 'none';
+            stdDescription.required = false;
+            stdDescription.value = '';
+            
+            nkContainer.style.display = 'block';
+            nkReqFields.forEach(f => f.required = true);
         }
     });
 </script>
